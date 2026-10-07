@@ -1,0 +1,44 @@
+/* Tokens de Sigilo: papel, tinta y lacre. Ningún color fuera de esta lista. */
+:root{
+  /* papel */
+  --papel:      #FAF8F4;   /* fondo */
+  --papel-2:    #F3F0E9;   /* superficie alterna, filas pares, cabeceras */
+  --papel-3:    #EAE6DC;   /* hover, bordes de campos */
+
+  /* tinta */
+  --tinta:      #14181F;   /* texto principal */
+  --tinta-2:    #4C5462;   /* texto secundario */
+  --tinta-3:    #828B9B;   /* deshabilitado, placeholders */
+  --linea:      #E0DCD2;
+  --linea-fuerte:#C9C3B6;
+
+  /* lacre: SOLO marca y sello. Nunca estado. */
+  --lacre:      #7A1F1C;
+  --lacre-2:    #9B3330;
+  --lacre-tenue:#F0E3E1;
+
+  /* estados: siempre acompañados de texto */
+  --cumple:     #2D6A4F;
+  --parcial:    #8A5E0C;
+  --no-cumple:  #B3261E;
+  --vencido:    #B3261E;
+
+  /* tipografía (las variables --fuente-* las inyecta next/font) */
+  --f-ui:   var(--fuente-ui), 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: var(--fuente-mono), 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  --f-doc:  var(--fuente-doc), 'Newsreader', Georgia, 'Times New Roman', serif;
+
+  /* escala de espaciado: 4px */
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e6:24px; --e8:32px; --e12:48px;
+
+  /* radios: chicos. Esto es un documento, no una app de celular */
+  --r1:3px; --r2:6px; --r3:10px;
+}
+
+[data-theme="dark"]{
+  --papel:#12151A; --papel-2:#1A1F26; --papel-3:#232931;
+  --tinta:#EDE9E1; --tinta-2:#A8B0BC; --tinta-3:#6B7484;
+  --linea:#2A313A; --linea-fuerte:#3C4450;
+  --lacre:#C4524D; --lacre-2:#D96B65; --lacre-tenue:#2A1C1B;
+  --cumple:#5FB08C; --parcial:#D1A14A; --no-cumple:#E06B62; --vencido:#E06B62;
+}
