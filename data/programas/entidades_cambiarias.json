@@ -1,0 +1,29 @@
+{
+  "sector": "entidades_cambiarias",
+  "resolucion": "UIF 14/2023",
+  "version": "2026-10-13",
+  "puntos": [
+    {
+      "codigo": "PT-01",
+      "titulo": "Manual de prevención",
+      "texto": "Verificar la existencia de un manual de prevención de LA/FT/FP vigente, su aprobación por el órgano de administración y la constancia de su difusión al personal.",
+      "origen_normativo": "Res. UIF 14/2023, art. ___ inc. ___",
+      "evidencia_sugerida": [
+        "Manual vigente en PDF",
+        "Acta del órgano de administración que lo aprueba",
+        "Constancia de difusión al personal"
+      ]
+    },
+    {
+      "codigo": "PT-02",
+      "titulo": "Oficial de cumplimiento",
+      "texto": "Verificar la designación del oficial de cumplimiento titular y suplente, su inscripción, y que reúna los requisitos de idoneidad e independencia.",
+      "origen_normativo": "Res. UIF 14/2023, art. ___ inc. ___",
+      "evidencia_sugerida": [
+        "Acta de designación",
+        "Constancia de inscripción",
+        "Antecedentes del designado"
+      ]
+    }
+  ]
+}
