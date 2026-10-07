@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const config: NextConfig = {
   poweredByHeader: false,
+  // Los programas de trabajo y las fuentes del expediente se leen del disco en
+  // tiempo de ejecución: tienen que viajar con las funciones al desplegar.
+  outputFileTracingIncludes: { "/**": ["./data/**/*"] },
   async headers() {
     return [
       {

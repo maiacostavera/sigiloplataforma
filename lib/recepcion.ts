@@ -9,7 +9,8 @@ import { registrarEvento } from "./db/evento";
 import { almacen } from "./almacen";
 import { comentar, ErrorPortal, itemDelPortal } from "./portal";
 
-export const MAX_BYTES = 50 * 1024 * 1024;
+import { MAX_BYTES } from "./limites";
+export { MAX_BYTES };
 
 export type Recibida = { id: string; sha256: string; bytes: number; nombre: string };
 
@@ -81,7 +82,7 @@ export async function recibirDelPortal(token: string, itemId: string, archivos: 
   if (i.item.estado === "aceptado") throw new ErrorPortal("aceptado");
   const reales = archivos.filter((a) => !(a.size === 0 && !a.name));
   if (reales.length === 0 && !comentario.trim()) throw new ErrorPortal("vacio");
-  for (const a of reales) if (a.size > MAX_BYTES) throw new ErrorPortal("muy_grande");
+  if (reales.reduce((s, a) => s + a.size, 0) > MAX_BYTES) throw new ErrorPortal("muy_grande");
 
   const recibidas: Recibida[] = [];
   for (const a of reales) recibidas.push(await recibirArchivo(i.item, a));

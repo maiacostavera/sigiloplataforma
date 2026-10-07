@@ -26,3 +26,6 @@ No se implementan sin decisión explícita.
 - Mostrar al revisado los comentarios que ya dejó en cada ítem.
 - Cargar el programa completo de entidades cambiarias con las citas
   normativas verificadas contra el texto de la Res. UIF 14/2023.
+- Archivos de hasta 50 MB en Vercel: subida directa al bucket con URL
+  firmada a una zona de entrada, y el servidor calcula la huella al moverla al
+  lugar definitivo. Hoy en Vercel el límite es 4 MB por envío.

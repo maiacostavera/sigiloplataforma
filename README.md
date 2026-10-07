@@ -82,16 +82,35 @@ Ver `.env.example`. Las principales:
 | `STORAGE_DRIVER` | `local` (carpeta `ALMACEN_DIR`) o `s3` |
 | `S3_*` | bucket S3-compatible (AWS, R2, MinIO…) |
 
-## Desplegarlo
+## Desplegarlo en Vercel
 
-Cualquier hosting de Node con Postgres sirve (por ejemplo Vercel + Neon o
-Supabase + Cloudflare R2):
+Se necesitan tres servicios: Vercel (la app), Postgres (recomendado **Neon**, desde
+el Marketplace de Vercel) y un storage S3-compatible (recomendado **Cloudflare R2**).
 
-1. Crear la base y el rol dueño como en el paso 1.
-2. `DATABASE_URL_DUENO=… npm run db:migrar` desde tu máquina.
-3. `alter role app_sigilo password '…';` con una contraseña real.
-4. Configurar las variables (`STORAGE_DRIVER=s3` y las `S3_*`) y desplegar.
-5. `DATABASE_URL=… SEED_EMAIL=… SEED_CLAVE=… npm run db:seed` para el primer revisor.
+En cada deploy, `npm run vercel-build` aplica las migraciones como dueño,
+crea o actualiza el rol `app_sigilo` con `APP_SIGILO_CLAVE`, crea el primer
+revisor si se definieron `SEED_EMAIL` y `SEED_CLAVE`, y compila.
+
+Variables a cargar en Vercel (Settings → Environment Variables):
+
+| Variable | Valor |
+|---|---|
+| `AUTH_SECRET` | `openssl rand -base64 32` |
+| `DATABASE_URL_DUENO` | la URL de Neon **con** el usuario dueño (`neondb_owner`) |
+| `APP_SIGILO_CLAVE` | una contraseña larga y aleatoria |
+| `DATABASE_URL` | la misma URL de Neon (la del *pooler*), cambiando usuario y contraseña por `app_sigilo` y `APP_SIGILO_CLAVE` |
+| `STORAGE_DRIVER` | `s3` |
+| `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | los del bucket de R2 |
+| `S3_REGION` | `auto` |
+| `SEED_EMAIL`, `SEED_CLAVE`, `SEED_NOMBRE` | el primer revisor (después se pueden borrar) |
+
+Si la integración de Neon carga sola una `DATABASE_URL` con el usuario dueño,
+**hay que reemplazarla**: la app tiene que conectarse como `app_sigilo`.
+
+**Límite de tamaño:** Vercel corta los requests de más de 4,5 MB, así que en
+Vercel el portal acepta hasta 4 MB por envío (configurable con
+`LIMITE_ENVIO_MB`, nunca más de 4 ahí). Para 50 MB hace falta subir directo
+al bucket; está anotado en `despues.md`.
 
 ## Inmutabilidad
 

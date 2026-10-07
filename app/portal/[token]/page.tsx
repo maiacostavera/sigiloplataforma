@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { portalPorToken, MAX_COMENTARIO, type ItemPortal } from "@/lib/portal";
 import { diasHasta, fecha, fechaHora } from "@/lib/formato";
 import { Marca } from "@/components/Marca";
+import { LIMITE_MB } from "@/lib/limites";
+import { EntradaArchivos } from "./EntradaArchivos";
 
 export const metadata: Metadata = {
   title: "Requerimiento",
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
 
 const ERRORES: Record<string, string> = {
   vacio: "No llegó ningún archivo. Elegí al menos uno y volvé a enviar.",
-  muy_grande: "Uno de los archivos supera los 50 MB. Mandalo partido o comprimido.",
+  muy_grande: `Lo que elegiste supera los ${LIMITE_MB} MB por envío. Mandá los archivos de a uno, o comprimidos.`,
   comentario_largo: `El comentario es muy largo. El máximo es ${MAX_COMENTARIO} caracteres.`,
   aceptado: "Este ítem ya fue aceptado. No hace falta mandar nada más.",
 };
@@ -95,8 +97,8 @@ function Tarjeta({ item: i, token, ok, error }: { item: ItemPortal; token: strin
         <form method="post" action={`/portal/${token}/items/${i.id}`} encType="multipart/form-data" className="tarjeta-form">
           <div className="campo">
             <label htmlFor={`a-${i.id}`}>{i.archivos.length ? "Mandar otro archivo" : "Archivos"}</label>
-            <input id={`a-${i.id}`} name="archivos" type="file" multiple className="entrada-archivo" aria-describedby={`ah-${i.id}`} />
-            <span id={`ah-${i.id}`} className="ayuda">Podés elegir varios. Hasta 50 MB cada uno.</span>
+            <EntradaArchivos id={`a-${i.id}`} ayudaId={`ah-${i.id}`} maxMb={LIMITE_MB} />
+            <span id={`ah-${i.id}`} className="ayuda">Podés elegir varios. Hasta {LIMITE_MB} MB por envío.</span>
           </div>
           <div className="campo">
             <label htmlFor={`c-${i.id}`}>Comentario <span className="secundario" style={{ fontWeight: 400 }}>(opcional)</span></label>

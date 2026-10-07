@@ -9,7 +9,8 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "db:migrar": "tsx --env-file-if-exists=.env scripts/migrar.mts",
-    "db:seed": "tsx --env-file-if-exists=.env scripts/seed.mts"
+    "db:seed": "tsx --env-file-if-exists=.env scripts/seed.mts",
+    "vercel-build": "tsx scripts/migrar.mts && tsx scripts/seed.mts && next build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1147.0",
