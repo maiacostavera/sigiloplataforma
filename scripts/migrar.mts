@@ -23,7 +23,8 @@ export async function migrar(url: string) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const url = process.env.DATABASE_URL_DUENO;
+  // En Vercel con Neon, DATABASE_URL_UNPOOLED es la conexión directa del dueño.
+  const url = process.env.DATABASE_URL_DUENO || process.env.DATABASE_URL_UNPOOLED;
   if (!url) {
     console.error("Falta DATABASE_URL_DUENO.");
     process.exit(1);

@@ -8,7 +8,7 @@ function aTest(url: string) {
 
 export function urlsDeTest() {
   const dueno = process.env.DATABASE_URL_DUENO;
-  const app = process.env.DATABASE_URL;
-  if (!dueno || !app) throw new Error("Faltan DATABASE_URL_DUENO y DATABASE_URL para correr los tests.");
+  const app = process.env.APP_DATABASE_URL || process.env.DATABASE_URL;
+  if (!dueno || !app) throw new Error("Faltan DATABASE_URL_DUENO y APP_DATABASE_URL para correr los tests.");
   return { dueno: aTest(dueno), app: aTest(app), mantenimiento: dueno };
 }

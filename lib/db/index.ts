@@ -16,13 +16,21 @@ function crear(url: string) {
   return { sql, db: drizzle(sql, { schema: esquema }) };
 }
 
+/**
+ * URL de la app: APP_DATABASE_URL. En Vercel no se acepta DATABASE_URL como
+ * respaldo, porque la integración de Neon la carga con el usuario dueño.
+ */
+export function urlApp() {
+  return process.env.APP_DATABASE_URL || (process.env.VERCEL ? undefined : process.env.DATABASE_URL);
+}
+
 type Conexion = ReturnType<typeof crear>;
 const g = globalThis as unknown as { __sigilo?: Conexion };
 
 function conexion(): Conexion {
   if (!g.__sigilo) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error("Falta DATABASE_URL (conexión como app_sigilo).");
+    const url = urlApp();
+    if (!url) throw new Error("Falta APP_DATABASE_URL (conexión como app_sigilo).");
     g.__sigilo = crear(url);
   }
   return g.__sigilo;
