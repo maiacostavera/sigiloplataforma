@@ -177,3 +177,24 @@ details[open] > summary::before { content: "−"; }
 details:not([open]) > .panel-cabeza { border-bottom: 0; border-radius: var(--r2); }
 .item-armado { display: grid; gap: var(--e3); grid-template-columns: 1fr; padding: var(--e3); background: var(--papel-2); border-radius: var(--r1); }
 @media (min-width: 900px) { .item-armado { grid-template-columns: minmax(0, 2.2fr) 160px minmax(0, 1.4fr) 30px; } }
+
+/* ---------- portal del revisado: tarjetas, pensado para el dedo ---------- */
+.portal { min-height: 100vh; }
+.portal-cabeza { display: flex; justify-content: space-between; align-items: center; gap: var(--e3); padding: var(--e3) var(--e4); border-bottom: 1px solid var(--linea); }
+.portal-cuerpo { max-width: 680px; margin: 0 auto; padding: var(--e6) var(--e4) var(--e12); }
+.portal h1 { font-size: 22px; }
+.portal input, .portal textarea, .portal select { font-size: 16px; } /* evita el zoom automático en iOS */
+.portal-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--e4); }
+.tarjeta { border: 1px solid var(--linea); border-left: 3px solid var(--linea-fuerte); border-radius: var(--r2); padding: var(--e4); background: var(--papel); }
+.tarjeta-respondido { border-left-color: var(--tinta-2); }
+.tarjeta-aceptado { border-left-color: var(--cumple); }
+.tarjeta-rechazado, .tarjeta-vencido { border-left-color: var(--vencido); }
+.tarjeta-titulo { font-size: 17px; margin: 2px 0 var(--e2); }
+.tarjeta-meta { display: flex; flex-wrap: wrap; gap: var(--e2) var(--e4); align-items: center; font-size: 14px; color: var(--tinta-2); }
+.tarjeta-motivo { margin-top: var(--e3); font-size: 14px; border-left: 3px solid var(--vencido); padding: var(--e2) var(--e3); background: var(--papel-2); }
+.tarjeta-archivos { list-style: none; margin: var(--e3) 0 0; padding: 0; font-size: 14px; display: grid; gap: var(--e1); }
+.tarjeta-archivos li { display: flex; flex-wrap: wrap; gap: 0 var(--e2); }
+.tarjeta-archivo-nombre { overflow-wrap: anywhere; }
+.tarjeta-form { margin-top: var(--e4); padding-top: var(--e4); border-top: 1px solid var(--linea); display: grid; gap: var(--e3); }
+.tarjeta-form .btn { min-height: 44px; }
+.tarjeta .ok, .tarjeta .error { margin-top: var(--e3); }
