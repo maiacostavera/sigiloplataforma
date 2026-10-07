@@ -29,3 +29,13 @@ export async function puntoDelRevisor(revisorId: string, puntoId: string) {
     .where(and(eq(t.puntoPrograma.id, puntoId), eq(t.sujetoObligado.revisorId, revisorId)));
   return p ?? null;
 }
+
+export async function requerimientoDelRevisor(revisorId: string, requerimientoId: string) {
+  if (!uuid(requerimientoId) || !uuid(revisorId)) return null;
+  const [q] = await db.select({ requerimiento: t.requerimiento, revision: t.revision, sujeto: t.sujetoObligado })
+    .from(t.requerimiento)
+    .innerJoin(t.revision, eq(t.revision.id, t.requerimiento.revisionId))
+    .innerJoin(t.sujetoObligado, eq(t.sujetoObligado.id, t.revision.sujetoObligadoId))
+    .where(and(eq(t.requerimiento.id, requerimientoId), eq(t.sujetoObligado.revisorId, revisorId)));
+  return q ?? null;
+}

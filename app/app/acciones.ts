@@ -6,7 +6,8 @@ import { revalidatePath } from "next/cache";
 import { db, t } from "@/lib/db";
 import { registrarEvento } from "@/lib/db/evento";
 import { revisorActual } from "@/lib/sesion";
-import { puntoDelRevisor, revisionDelRevisor, sujetoDelRevisor } from "@/lib/acceso";
+import { puntoDelRevisor, requerimientoDelRevisor, revisionDelRevisor, sujetoDelRevisor } from "@/lib/acceso";
+import { DIAS_VIGENCIA_TOKEN, nuevoToken } from "@/lib/token";
 import { cargarPrograma, listarProgramas } from "@/lib/programas";
 import { accion, cuit, ErrorDeValidacion, fechaISO, texto, uuid, type Estado } from "@/lib/validar";
 
@@ -71,6 +72,8 @@ export const crearRevision = accion(async (sujetoId: string, _prev: Estado, fd: 
 
 // ---------- puntos del programa ----------
 
+const puntoParaEvento = (d: ReturnType<typeof datosPunto>) => ({ codigo: d.codigo, titulo: d.titulo, texto: d.texto, origen_normativo: d.origenNormativo });
+
 function datosPunto(fd: FormData) {
   return {
     codigo: texto(fd, "codigo", "el código", { max: 20 }).toUpperCase(),
@@ -88,7 +91,7 @@ export const agregarPunto = accion(async (revisionId: string, _prev: Estado, fd:
   await db.transaction(async (tx) => {
     const [{ max }] = await tx.select({ max: sql<number>`coalesce(max(${t.puntoPrograma.orden}), 0)` }).from(t.puntoPrograma).where(eq(t.puntoPrograma.revisionId, revisionId));
     const [p] = await tx.insert(t.puntoPrograma).values({ ...datos, revisionId, orden: Number(max) + 1 }).returning({ id: t.puntoPrograma.id });
-    await registrarEvento(tx, { entidad: "punto_programa", entidadId: p.id, tipo: "punto_agregado", actor: r.email, payload: { ...datos, revision_id: revisionId } });
+    await registrarEvento(tx, { entidad: "punto_programa", entidadId: p.id, tipo: "punto_agregado", actor: r.email, payload: { ...puntoParaEvento(datos), revision_id: revisionId } });
   });
   redirect(`/app/revisiones/${revisionId}`);
 });
@@ -102,7 +105,7 @@ export const editarPunto = accion(async (puntoId: string, _prev: Estado, fd: For
     await tx.update(t.puntoPrograma).set(datos).where(eq(t.puntoPrograma.id, puntoId));
     await registrarEvento(tx, {
       entidad: "punto_programa", entidadId: puntoId, tipo: "punto_editado", actor: r.email,
-      payload: { antes: { codigo: p.punto.codigo, titulo: p.punto.titulo, texto: p.punto.texto, origen_normativo: p.punto.origenNormativo }, despues: datos },
+      payload: { antes: { codigo: p.punto.codigo, titulo: p.punto.titulo, texto: p.punto.texto, origen_normativo: p.punto.origenNormativo }, despues: puntoParaEvento(datos) },
     });
   });
   redirect(`/app/puntos/${puntoId}`);
@@ -127,4 +130,73 @@ export async function moverPunto(puntoId: string, direccion: "arriba" | "abajo")
     await registrarEvento(tx, { entidad: "punto_programa", entidadId: puntoId, tipo: "punto_reordenado", actor: r.email, payload: { direccion, orden_nuevo: j + 1 } });
   });
   revalidatePath(`/app/revisiones/${revisionId}`);
+}
+
+// ---------- requerimientos ----------
+
+type ItemEntrada = { punto_programa_id: string; descripcion: string; vence_en: string; responsable_email: string };
+
+export const crearRequerimiento = accion(async (revisionId: string, _prev: Estado, fd: FormData) => {
+  const r = await revisorActual();
+  const rev = await revisionDelRevisor(r.id, revisionId);
+  if (!rev) throw new ErrorDeValidacion("La revisión no existe.");
+  if (rev.revision.estado === "informe_emitido") throw new ErrorDeValidacion("La revisión ya tiene el informe emitido.");
+  const titulo = texto(fd, "titulo", "el título", { opcional: true, max: 200 }) || null;
+
+  let items: ItemEntrada[];
+  try {
+    items = JSON.parse(String(fd.get("items") ?? "[]"));
+  } catch {
+    throw new ErrorDeValidacion("No se pudieron leer los ítems. Volvé a intentar.");
+  }
+  if (!Array.isArray(items) || items.length === 0) throw new ErrorDeValidacion("Elegí al menos un punto y pedí al menos un archivo.");
+
+  const puntos = await db.select({ id: t.puntoPrograma.id, codigo: t.puntoPrograma.codigo }).from(t.puntoPrograma).where(eq(t.puntoPrograma.revisionId, revisionId));
+  const validos = new Map(puntos.map((p) => [p.id, p.codigo]));
+  const limpios = items.map((it, i) => {
+    const n = `El ítem ${i + 1}`;
+    const codigo = validos.get(String(it.punto_programa_id));
+    if (!codigo) throw new ErrorDeValidacion(`${n} no corresponde a un punto de esta revisión.`);
+    const descripcion = String(it.descripcion ?? "").trim();
+    if (!descripcion) throw new ErrorDeValidacion(`${n} (${codigo}) no dice qué archivo se pide.`);
+    const vence = String(it.vence_en ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(vence) || Number.isNaN(Date.parse(vence))) throw new ErrorDeValidacion(`${n} (${codigo}) no tiene fecha de vencimiento.`);
+    const mail = String(it.responsable_email ?? "").trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) throw new ErrorDeValidacion(`${n} (${codigo}) no tiene un mail de responsable válido.`);
+    return { puntoProgramaId: String(it.punto_programa_id), descripcion: descripcion.slice(0, 1000), venceEn: vence, responsableEmail: mail };
+  });
+
+  const id = await db.transaction(async (tx) => {
+    const [{ siguiente }] = await tx.select({ siguiente: sql<number>`coalesce(max(${t.requerimiento.numero}), 0) + 1` })
+      .from(t.requerimiento).where(eq(t.requerimiento.revisionId, revisionId));
+    const [q] = await tx.insert(t.requerimiento).values({
+      revisionId, numero: Number(siguiente), titulo, tokenPortal: nuevoToken(),
+      tokenExpiraEn: sql`now() + make_interval(days => ${DIAS_VIGENCIA_TOKEN})` as unknown as Date,
+    }).returning({ id: t.requerimiento.id, numero: t.requerimiento.numero });
+    // Uno por uno y con clock_timestamp(): now() es el mismo para toda la
+    // transacción y se perdería el orden en que el revisor armó los ítems.
+    const creados: { id: string }[] = [];
+    for (const x of limpios) {
+      const [c] = await tx.insert(t.requerimientoItem).values({ ...x, requerimientoId: q.id, creadoEn: sql`clock_timestamp()` as unknown as Date }).returning({ id: t.requerimientoItem.id });
+      creados.push(c);
+    }
+    await registrarEvento(tx, { entidad: "requerimiento", entidadId: q.id, tipo: "requerimiento_creado", actor: r.email, payload: { numero: q.numero, titulo, items: creados.length, revision_id: revisionId } });
+    if (rev.revision.estado === "planificada") {
+      await tx.update(t.revision).set({ estado: "en_curso" }).where(eq(t.revision.id, revisionId));
+      await registrarEvento(tx, { entidad: "revision", entidadId: revisionId, tipo: "estado_cambiado", actor: r.email, payload: { de: "planificada", a: "en_curso" }, motivo: `Requerimiento Nº ${q.numero}` });
+    }
+    return q.id;
+  });
+  redirect(`/app/requerimientos/${id}`);
+});
+
+export async function marcarEnviado(requerimientoId: string) {
+  const r = await revisorActual();
+  const q = await requerimientoDelRevisor(r.id, requerimientoId);
+  if (!q || q.requerimiento.enviadoEn) return;
+  await db.transaction(async (tx) => {
+    await tx.update(t.requerimiento).set({ enviadoEn: sql`now()` as unknown as Date }).where(eq(t.requerimiento.id, requerimientoId));
+    await registrarEvento(tx, { entidad: "requerimiento", entidadId: requerimientoId, tipo: "requerimiento_enviado", actor: r.email, payload: { numero: q.requerimiento.numero } });
+  });
+  revalidatePath(`/app/requerimientos/${requerimientoId}`);
 }

@@ -175,3 +175,5 @@ details > summary::-webkit-details-marker { display: none; }
 details > summary::before { content: "+"; font-family: var(--f-mono); display: inline-block; width: 1.4em; color: var(--tinta-2); }
 details[open] > summary::before { content: "−"; }
 details:not([open]) > .panel-cabeza { border-bottom: 0; border-radius: var(--r2); }
+.item-armado { display: grid; gap: var(--e3); grid-template-columns: 1fr; padding: var(--e3); background: var(--papel-2); border-radius: var(--r1); }
+@media (min-width: 900px) { .item-armado { grid-template-columns: minmax(0, 2.2fr) 160px minmax(0, 1.4fr) 30px; } }

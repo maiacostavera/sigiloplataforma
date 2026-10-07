@@ -51,3 +51,31 @@ export async function puntosDeRevision(revisionId: string) {
   return db.select().from(t.puntoPrograma).where(eq(t.puntoPrograma.revisionId, revisionId))
     .orderBy(asc(t.puntoPrograma.orden), asc(t.puntoPrograma.codigo));
 }
+
+export async function requerimientosDeRevision(revisionId: string) {
+  return db.execute<{
+    id: string; numero: number; titulo: string | null; enviado_en: string | null; token_expira_en: string; creado_en: string;
+    items: number; pendientes: number; respondidos: number; aceptados: number; rechazados: number; vence_primero: string | null;
+  }>(sql`
+    select q.id, q.numero, q.titulo, q.enviado_en, q.token_expira_en, q.creado_en,
+           count(i.id)::int as items,
+           count(i.id) filter (where i.estado = 'pendiente')::int as pendientes,
+           count(i.id) filter (where i.estado = 'respondido')::int as respondidos,
+           count(i.id) filter (where i.estado = 'aceptado')::int as aceptados,
+           count(i.id) filter (where i.estado = 'rechazado')::int as rechazados,
+           min(i.vence_en) filter (where i.estado in ('pendiente','rechazado'))::text as vence_primero
+    from requerimiento q
+    left join requerimiento_item i on i.requerimiento_id = q.id
+    where q.revision_id = ${revisionId}
+    group by q.id
+    order by q.numero desc`).then((f) => [...f]);
+}
+
+/** Ítems de un requerimiento ya verificado, con el punto al que responden. */
+export async function itemsDeRequerimiento(requerimientoId: string) {
+  return db.select({ item: t.requerimientoItem, punto: { id: t.puntoPrograma.id, codigo: t.puntoPrograma.codigo, titulo: t.puntoPrograma.titulo } })
+    .from(t.requerimientoItem)
+    .innerJoin(t.puntoPrograma, eq(t.puntoPrograma.id, t.requerimientoItem.puntoProgramaId))
+    .where(eq(t.requerimientoItem.requerimientoId, requerimientoId))
+    .orderBy(asc(t.puntoPrograma.orden), asc(t.requerimientoItem.creadoEn));
+}
