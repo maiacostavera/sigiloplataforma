@@ -22,14 +22,27 @@ export async function migrar(url: string) {
   }
 }
 
+// Conexión del dueño. Según cómo se conecte Neon (o Supabase) a Vercel, la
+// variable cambia de nombre: se prueban las conocidas, la directa primero.
+const CANDIDATAS = [
+  "DATABASE_URL_DUENO",
+  "DATABASE_URL_UNPOOLED",
+  "POSTGRES_URL_NON_POOLING",
+  "DATABASE_URL",
+  "POSTGRES_URL",
+];
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  // En Vercel con Neon, DATABASE_URL_UNPOOLED es la conexión directa del dueño.
-  const url = process.env.DATABASE_URL_DUENO || process.env.DATABASE_URL_UNPOOLED;
-  if (!url) {
-    console.error("Falta DATABASE_URL_DUENO.");
+  const nombre = CANDIDATAS.find((n) => process.env[n]);
+  if (!nombre) {
+    const vistas = Object.keys(process.env).filter((k) => /DATABASE|POSTGRES|^PG/.test(k));
+    console.error("No hay conexión a la base para migrar.");
+    console.error(`Se buscó: ${CANDIDATAS.join(", ")}.`);
+    console.error(vistas.length ? `Variables de base encontradas: ${vistas.join(", ")}.` : "No hay NINGUNA variable de base: conectá Neon al proyecto (Storage) para el entorno Production.");
     process.exit(1);
   }
-  migrar(url).then(
+  console.log(`Migrando con ${nombre}.`);
+  migrar(process.env[nombre]!).then(
     () => console.log("Migraciones aplicadas."),
     (e) => { console.error(e); process.exit(1); },
   );
