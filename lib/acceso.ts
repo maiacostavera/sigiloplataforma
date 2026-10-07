@@ -65,3 +65,13 @@ export async function evidenciaDelRevisor(revisorId: string, evidenciaId: string
     .where(and(eq(t.evidencia.id, evidenciaId), eq(t.sujetoObligado.revisorId, revisorId)));
   return e ?? null;
 }
+
+export async function observacionDelRevisor(revisorId: string, observacionId: string) {
+  if (!uuid(observacionId) || !uuid(revisorId)) return null;
+  const [o] = await db.select({ observacion: t.observacion, revision: t.revision })
+    .from(t.observacion)
+    .innerJoin(t.revision, eq(t.revision.id, t.observacion.revisionId))
+    .innerJoin(t.sujetoObligado, eq(t.sujetoObligado.id, t.revision.sujetoObligadoId))
+    .where(and(eq(t.observacion.id, observacionId), eq(t.sujetoObligado.revisorId, revisorId)));
+  return o ?? null;
+}

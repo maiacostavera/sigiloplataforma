@@ -69,7 +69,7 @@ export function Armado({ puntos, venceSugerido }: { puntos: Punto[]; venceSugeri
         Cada ítem usa el responsable y el vencimiento por defecto, salvo que le pongas otro.
       </p>
 
-      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+      <fieldset>
         <legend className="rotulo" style={{ marginBottom: 12 }}>Puntos del programa</legend>
         <div className="tabla-marco">
           <table className="tabla">

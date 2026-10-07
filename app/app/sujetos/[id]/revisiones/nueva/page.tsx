@@ -34,7 +34,7 @@ export default async function NuevaRevision({ params }: { params: Promise<{ id: 
         {prog ? <>Se va a cargar el programa de trabajo de <span className="dato">{prog.resolucion}</span> con <span className="dato">{prog.puntos.length}</span> puntos. Después podés agregar, editar y reordenar.</> : "No hay programa de trabajo para este sector: vas a cargar los puntos a mano."}
       </p>
       <FormAccion accion={crearRevision.bind(null, s.id)} className="pila-6">
-        <fieldset className="rejilla rejilla-2" style={{ border: 0, padding: 0, margin: 0 }}>
+        <fieldset className="rejilla rejilla-2">
           <legend className="etiqueta" style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>Período revisado</legend>
           <div className="campo">
             <label htmlFor="periodo_desde">Desde</label>

@@ -6,8 +6,9 @@ import { revalidatePath } from "next/cache";
 import { db, t } from "@/lib/db";
 import { registrarEvento } from "@/lib/db/evento";
 import { revisorActual } from "@/lib/sesion";
-import { itemDelRevisor, puntoDelRevisor, requerimientoDelRevisor, revisionDelRevisor, sujetoDelRevisor } from "@/lib/acceso";
+import { itemDelRevisor, observacionDelRevisor, puntoDelRevisor, requerimientoDelRevisor, revisionDelRevisor, sujetoDelRevisor } from "@/lib/acceso";
 import { DIAS_VIGENCIA_TOKEN, nuevoToken } from "@/lib/token";
+import { actualizarEstadoRevision, evidenciasDePunto, faltantes, resumenPrograma } from "@/lib/conclusiones";
 import { cargarPrograma, listarProgramas } from "@/lib/programas";
 import { accion, cuit, ErrorDeValidacion, fechaISO, texto, uuid, type Estado } from "@/lib/validar";
 
@@ -87,6 +88,7 @@ export const agregarPunto = accion(async (revisionId: string, _prev: Estado, fd:
   const r = await revisorActual();
   const rev = await revisionDelRevisor(r.id, revisionId);
   if (!rev) throw new ErrorDeValidacion("La revisión no existe.");
+  if (rev.revision.estado === "informe_emitido") throw new ErrorDeValidacion("El informe ya fue emitido: el programa no se puede cambiar.");
   const datos = datosPunto(fd);
   await db.transaction(async (tx) => {
     const [{ max }] = await tx.select({ max: sql<number>`coalesce(max(${t.puntoPrograma.orden}), 0)` }).from(t.puntoPrograma).where(eq(t.puntoPrograma.revisionId, revisionId));
@@ -100,6 +102,7 @@ export const editarPunto = accion(async (puntoId: string, _prev: Estado, fd: For
   const r = await revisorActual();
   const p = await puntoDelRevisor(r.id, puntoId);
   if (!p) throw new ErrorDeValidacion("El punto no existe.");
+  if (p.revision.estado === "informe_emitido") throw new ErrorDeValidacion("El informe ya fue emitido: el programa no se puede cambiar.");
   const datos = datosPunto(fd);
   await db.transaction(async (tx) => {
     await tx.update(t.puntoPrograma).set(datos).where(eq(t.puntoPrograma.id, puntoId));
@@ -114,7 +117,7 @@ export const editarPunto = accion(async (puntoId: string, _prev: Estado, fd: For
 export async function moverPunto(puntoId: string, direccion: "arriba" | "abajo") {
   const r = await revisorActual();
   const p = await puntoDelRevisor(r.id, puntoId);
-  if (!p) return;
+  if (!p || p.revision.estado === "informe_emitido") return;
   const revisionId = p.revision.id;
   await db.transaction(async (tx) => {
     const puntos = await tx.select({ id: t.puntoPrograma.id, orden: t.puntoPrograma.orden }).from(t.puntoPrograma)
@@ -228,4 +231,114 @@ export const rechazarItem = accion(async (itemId: string, _prev: Estado, fd: For
   });
   revalidatePath(`/app/requerimientos/${i.requerimiento.id}`);
   return null;
+});
+
+// ---------- conclusiones ----------
+
+const RESULTADOS = ["cumple", "cumple_parcialmente", "no_cumple"] as const;
+
+export const guardarConclusion = accion(async (puntoId: string, _prev: Estado, fd: FormData) => {
+  const r = await revisorActual();
+  const p = await puntoDelRevisor(r.id, puntoId);
+  if (!p) throw new ErrorDeValidacion("El punto no existe.");
+  if (p.revision.estado === "informe_emitido") throw new ErrorDeValidacion("El informe de esta revisión ya fue emitido. Las conclusiones no se pueden cambiar.");
+  const resultado = String(fd.get("resultado") ?? "") as (typeof RESULTADOS)[number];
+  if (!RESULTADOS.includes(resultado)) throw new ErrorDeValidacion("Elegí el resultado: cumple, cumple parcialmente o no cumple.");
+  const fundamento = texto(fd, "fundamento", "el fundamento", { max: 20000 });
+  if (fundamento.length < 20) throw new ErrorDeValidacion("El fundamento tiene que tener al menos 20 caracteres. Sin fundamento no hay conclusión.");
+  const elegidas = [...new Set(fd.getAll("evidencias").map(String))];
+  const basadaEn = uuid(fd.get("basada_en"));
+
+  const validas = new Set((await evidenciasDePunto(puntoId)).map((e) => e.evidencia.id));
+  if (elegidas.some((id) => !validas.has(id))) throw new ErrorDeValidacion("Una de las evidencias marcadas no corresponde a este punto.");
+
+  await db.transaction(async (tx) => {
+    // Bloquea el punto: dos correcciones simultáneas no pueden partir de la misma conclusión.
+    await tx.select({ id: t.puntoPrograma.id }).from(t.puntoPrograma).where(eq(t.puntoPrograma.id, puntoId)).for("update");
+    const vigentes = await tx.select({ id: t.conclusionVigente.id }).from(t.conclusionVigente).where(eq(t.conclusionVigente.puntoProgramaId, puntoId));
+    const actual = vigentes[0]?.id ?? null;
+    if (actual !== basadaEn) throw new ErrorDeValidacion("La conclusión cambió mientras la editabas. Recargá la página y revisala antes de guardar.");
+
+    const [c] = await tx.insert(t.conclusion).values({ puntoProgramaId: puntoId, resultado, fundamento, autorId: r.id, reemplazaA: actual }).returning({ id: t.conclusion.id });
+    if (elegidas.length) await tx.insert(t.conclusionEvidencia).values(elegidas.map((evidenciaId) => ({ conclusionId: c.id, evidenciaId })));
+    await registrarEvento(tx, {
+      entidad: "conclusion", entidadId: c.id, tipo: actual ? "conclusion_corregida" : "conclusion_emitida", actor: r.email,
+      payload: { punto_programa_id: puntoId, codigo: p.punto.codigo, resultado, evidencias: elegidas, reemplaza_a: actual },
+    });
+    await actualizarEstadoRevision(tx, p.revision.id, r.email);
+  });
+  revalidatePath(`/app/puntos/${puntoId}`);
+  return { ok: "Conclusión guardada." };
+});
+
+// ---------- observaciones ----------
+
+export const crearObservacion = accion(async (puntoId: string, _prev: Estado, fd: FormData) => {
+  const r = await revisorActual();
+  const p = await puntoDelRevisor(r.id, puntoId);
+  if (!p) throw new ErrorDeValidacion("El punto no existe.");
+  const textoObs = texto(fd, "texto", "qué está mal", { max: 5000 });
+  const recomendacion = texto(fd, "recomendacion", "la recomendación", { max: 5000 });
+  const plazo = fechaISO(fd, "plazo", "el plazo", { opcional: true });
+  await db.transaction(async (tx) => {
+    const [o] = await tx.insert(t.observacion).values({ revisionId: p.revision.id, puntoProgramaId: puntoId, texto: textoObs, recomendacion, plazo }).returning({ id: t.observacion.id });
+    await registrarEvento(tx, { entidad: "observacion", entidadId: o.id, tipo: "observacion_creada", actor: r.email, payload: { punto_programa_id: puntoId, codigo: p.punto.codigo, plazo } });
+  });
+  revalidatePath(`/app/puntos/${puntoId}`);
+  return { ok: "Observación creada." };
+});
+
+/** Cambiar el estado de una observación es insertar una fila nueva que la reemplaza. */
+export async function cambiarEstadoObservacion(observacionId: string, estado: "subsanada" | "no_subsanada" | "abierta") {
+  const r = await revisorActual();
+  const o = await observacionDelRevisor(r.id, observacionId);
+  if (!o || !["subsanada", "no_subsanada", "abierta"].includes(estado)) return;
+  await db.transaction(async (tx) => {
+    const [vig] = await tx.select({ id: t.observacionVigente.id }).from(t.observacionVigente).where(eq(t.observacionVigente.id, observacionId));
+    if (!vig) return; // ya fue reemplazada
+    const v = o.observacion;
+    const [n] = await tx.insert(t.observacion).values({
+      revisionId: v.revisionId, puntoProgramaId: v.puntoProgramaId, texto: v.texto, recomendacion: v.recomendacion, plazo: v.plazo,
+      estado, observacionOrigenId: v.observacionOrigenId, reemplazaA: v.id,
+    }).returning({ id: t.observacion.id });
+    await registrarEvento(tx, { entidad: "observacion", entidadId: n.id, tipo: "observacion_estado", actor: r.email, payload: { de: v.estado, a: estado, reemplaza_a: v.id } });
+  });
+  revalidatePath(`/app/revisiones/${o.revision.id}/observaciones`);
+}
+
+/** Trae a esta revisión una observación abierta de la anterior, vinculada a su origen. */
+export const arrastrarObservacion = accion(async (revisionId: string, observacionId: string, _prev: Estado, fd: FormData) => {
+  const r = await revisorActual();
+  const rev = await revisionDelRevisor(r.id, revisionId);
+  const o = await observacionDelRevisor(r.id, observacionId);
+  if (!rev || !o || o.revision.id !== rev.revision.revisionAnteriorId) throw new ErrorDeValidacion("La observación no corresponde a la revisión anterior.");
+  const puntoId = uuid(fd.get("punto_programa_id"));
+  const [punto] = puntoId ? await db.select().from(t.puntoPrograma).where(and(eq(t.puntoPrograma.id, puntoId), eq(t.puntoPrograma.revisionId, revisionId))) : [];
+  if (!punto) throw new ErrorDeValidacion("Elegí a qué punto de esta revisión corresponde.");
+  await db.transaction(async (tx) => {
+    const [n] = await tx.insert(t.observacion).values({
+      revisionId, puntoProgramaId: punto.id, texto: o.observacion.texto, recomendacion: o.observacion.recomendacion, plazo: o.observacion.plazo,
+      observacionOrigenId: o.observacion.id,
+    }).returning({ id: t.observacion.id });
+    await registrarEvento(tx, { entidad: "observacion", entidadId: n.id, tipo: "observacion_arrastrada", actor: r.email, payload: { observacion_origen_id: o.observacion.id, codigo: punto.codigo } });
+  });
+  revalidatePath(`/app/revisiones/${revisionId}/observaciones`);
+  return null;
+});
+
+// ---------- emisión del informe ----------
+
+export const emitirInforme = accion(async (revisionId: string, _prev: Estado, _fd: FormData) => {
+  const r = await revisorActual();
+  const rev = await revisionDelRevisor(r.id, revisionId);
+  if (!rev) throw new ErrorDeValidacion("La revisión no existe.");
+  if (rev.revision.estado === "informe_emitido") return null;
+  const f = faltantes(await resumenPrograma(revisionId));
+  if (f.length) throw new ErrorDeValidacion(`Todavía no se puede emitir: ${f.map((x) => `${x.codigo} ${x.problema.toLowerCase()}`).join(" ")}`);
+  await db.transaction(async (tx) => {
+    await tx.update(t.revision).set({ estado: "informe_emitido" }).where(eq(t.revision.id, revisionId));
+    await registrarEvento(tx, { entidad: "revision", entidadId: revisionId, tipo: "informe_emitido", actor: r.email, payload: { de: rev.revision.estado, a: "informe_emitido" } });
+  });
+  revalidatePath(`/app/revisiones/${revisionId}`);
+  return { ok: "Informe emitido." };
 });
