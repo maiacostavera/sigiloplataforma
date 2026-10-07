@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db, t } from "@/lib/db";
 import { registrarEvento } from "@/lib/db/evento";
 import { revisorActual } from "@/lib/sesion";
-import { puntoDelRevisor, requerimientoDelRevisor, revisionDelRevisor, sujetoDelRevisor } from "@/lib/acceso";
+import { itemDelRevisor, puntoDelRevisor, requerimientoDelRevisor, revisionDelRevisor, sujetoDelRevisor } from "@/lib/acceso";
 import { DIAS_VIGENCIA_TOKEN, nuevoToken } from "@/lib/token";
 import { cargarPrograma, listarProgramas } from "@/lib/programas";
 import { accion, cuit, ErrorDeValidacion, fechaISO, texto, uuid, type Estado } from "@/lib/validar";
@@ -200,3 +200,32 @@ export async function marcarEnviado(requerimientoId: string) {
   });
   revalidatePath(`/app/requerimientos/${requerimientoId}`);
 }
+
+// ---------- revisión de ítems ----------
+
+export const aceptarItem = accion(async (itemId: string, _prev: Estado, _fd: FormData) => {
+  const r = await revisorActual();
+  const i = await itemDelRevisor(r.id, itemId);
+  if (!i) throw new ErrorDeValidacion("El ítem no existe.");
+  if (i.item.estado !== "respondido") throw new ErrorDeValidacion("Solo se puede aceptar un ítem respondido.");
+  await db.transaction(async (tx) => {
+    await tx.update(t.requerimientoItem).set({ estado: "aceptado" }).where(eq(t.requerimientoItem.id, itemId));
+    await registrarEvento(tx, { entidad: "requerimiento_item", entidadId: itemId, tipo: "item_aceptado", actor: r.email, payload: { de: i.item.estado, a: "aceptado" } });
+  });
+  revalidatePath(`/app/requerimientos/${i.requerimiento.id}`);
+  return null;
+});
+
+export const rechazarItem = accion(async (itemId: string, _prev: Estado, fd: FormData) => {
+  const r = await revisorActual();
+  const i = await itemDelRevisor(r.id, itemId);
+  if (!i) throw new ErrorDeValidacion("El ítem no existe.");
+  if (i.item.estado !== "respondido") throw new ErrorDeValidacion("Solo se puede rechazar un ítem respondido.");
+  const motivo = texto(fd, "motivo", "qué falta o qué hay que mandar", { max: 1000 });
+  await db.transaction(async (tx) => {
+    await tx.update(t.requerimientoItem).set({ estado: "rechazado" }).where(eq(t.requerimientoItem.id, itemId));
+    await registrarEvento(tx, { entidad: "requerimiento_item", entidadId: itemId, tipo: "item_rechazado", actor: r.email, payload: { de: i.item.estado, a: "rechazado" }, motivo });
+  });
+  revalidatePath(`/app/requerimientos/${i.requerimiento.id}`);
+  return null;
+});

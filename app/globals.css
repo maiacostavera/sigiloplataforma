@@ -198,3 +198,32 @@ details:not([open]) > .panel-cabeza { border-bottom: 0; border-radius: var(--r2)
 .tarjeta-form { margin-top: var(--e4); padding-top: var(--e4); border-top: 1px solid var(--linea); display: grid; gap: var(--e3); }
 .tarjeta-form .btn { min-height: 44px; }
 .tarjeta .ok, .tarjeta .error { margin-top: var(--e3); }
+.entrada-archivo { font: inherit; font-size: 15px; width: 100%; padding: var(--e3); border: 1px dashed var(--linea-fuerte); border-radius: var(--r2); background: var(--papel-2); box-sizing: border-box; color: var(--tinta-2); }
+.entrada-archivo::file-selector-button { font: inherit; font-weight: 600; margin-right: var(--e3); padding: 8px var(--e3); border: 1px solid var(--linea-fuerte); border-radius: var(--r1); background: var(--papel); color: var(--tinta); cursor: pointer; }
+.tabla tr.con-detalle td { border-bottom: 0; }
+.tabla tr.detalle td { padding-top: 0; }
+.tabla tbody tr.detalle:hover td { background: transparent; }
+.evidencias { list-style: none; margin: 0 0 var(--e2); padding: 0; display: grid; gap: var(--e1); }
+.evidencias li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--e2); font-size: 14px; }
+.evidencias li .icono { width: 16px; height: 16px; color: var(--tinta-2); }
+.evidencias li .dato { font-size: 12px; }
+.nota { font-size: 14px; margin: var(--e1) 0; }
+.rechazo { display: flex; gap: var(--e2); flex-wrap: wrap; flex: 1; min-width: 260px; }
+.rechazo input { flex: 1; min-width: 180px; }
+.rechazo .error { flex-basis: 100%; }
+
+/* ---------- la pantalla del sello ---------- */
+.evidencia { max-width: 760px; margin: var(--e6) auto 0; }
+.evidencia-sello { display: flex; justify-content: center; padding: var(--e6) 0 var(--e8); }
+.evidencia-sello svg { width: min(280px, 72vw); height: auto; }
+.ficha { margin: 0; border-top: 1px solid var(--linea-fuerte); }
+.ficha-fila { display: grid; grid-template-columns: 1fr; gap: 2px var(--e4); padding: var(--e3) 0; border-bottom: 1px solid var(--linea); align-items: baseline; }
+@media (min-width: 640px) { .ficha-fila { grid-template-columns: 170px minmax(0, 1fr) auto; } }
+.ficha-fila dd { margin: 0; min-width: 0; }
+.ficha-valor { font-size: 15px; overflow-wrap: anywhere; }
+.ficha-huella > span { display: block; }
+.ficha-huella { font-size: 15px; letter-spacing: .02em; word-spacing: .2em; line-height: 1.7; }
+.ficha-extra { display: block; font-size: 12px; margin-top: 2px; }
+.ficha-accion { justify-self: start; }
+@media (min-width: 640px) { .ficha-accion { justify-self: end; } }
+.evidencia-pie { margin-top: var(--e8); color: var(--tinta-2); text-align: center; font-size: 15px; }

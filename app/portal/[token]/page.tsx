@@ -94,6 +94,11 @@ function Tarjeta({ item: i, token, ok, error }: { item: ItemPortal; token: strin
       {i.estado !== "aceptado" && (
         <form method="post" action={`/portal/${token}/items/${i.id}`} encType="multipart/form-data" className="tarjeta-form">
           <div className="campo">
+            <label htmlFor={`a-${i.id}`}>{i.archivos.length ? "Mandar otro archivo" : "Archivos"}</label>
+            <input id={`a-${i.id}`} name="archivos" type="file" multiple className="entrada-archivo" aria-describedby={`ah-${i.id}`} />
+            <span id={`ah-${i.id}`} className="ayuda">Podés elegir varios. Hasta 50 MB cada uno.</span>
+          </div>
+          <div className="campo">
             <label htmlFor={`c-${i.id}`}>Comentario <span className="secundario" style={{ fontWeight: 400 }}>(opcional)</span></label>
             <textarea id={`c-${i.id}`} name="comentario" rows={2} maxLength={MAX_COMENTARIO} style={{ minHeight: 64 }} />
           </div>

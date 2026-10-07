@@ -39,3 +39,29 @@ export async function requerimientoDelRevisor(revisorId: string, requerimientoId
     .where(and(eq(t.requerimiento.id, requerimientoId), eq(t.sujetoObligado.revisorId, revisorId)));
   return q ?? null;
 }
+
+export async function itemDelRevisor(revisorId: string, itemId: string) {
+  if (!uuid(itemId) || !uuid(revisorId)) return null;
+  const [i] = await db.select({ item: t.requerimientoItem, requerimiento: t.requerimiento, revision: t.revision })
+    .from(t.requerimientoItem)
+    .innerJoin(t.requerimiento, eq(t.requerimiento.id, t.requerimientoItem.requerimientoId))
+    .innerJoin(t.revision, eq(t.revision.id, t.requerimiento.revisionId))
+    .innerJoin(t.sujetoObligado, eq(t.sujetoObligado.id, t.revision.sujetoObligadoId))
+    .where(and(eq(t.requerimientoItem.id, itemId), eq(t.sujetoObligado.revisorId, revisorId)));
+  return i ?? null;
+}
+
+export async function evidenciaDelRevisor(revisorId: string, evidenciaId: string) {
+  if (!uuid(evidenciaId) || !uuid(revisorId)) return null;
+  const [e] = await db.select({
+    evidencia: t.evidencia, item: t.requerimientoItem, requerimiento: t.requerimiento, punto: t.puntoPrograma, revision: t.revision, sujeto: t.sujetoObligado,
+  })
+    .from(t.evidencia)
+    .innerJoin(t.requerimientoItem, eq(t.requerimientoItem.id, t.evidencia.requerimientoItemId))
+    .innerJoin(t.requerimiento, eq(t.requerimiento.id, t.requerimientoItem.requerimientoId))
+    .innerJoin(t.puntoPrograma, eq(t.puntoPrograma.id, t.requerimientoItem.puntoProgramaId))
+    .innerJoin(t.revision, eq(t.revision.id, t.requerimiento.revisionId))
+    .innerJoin(t.sujetoObligado, eq(t.sujetoObligado.id, t.revision.sujetoObligadoId))
+    .where(and(eq(t.evidencia.id, evidenciaId), eq(t.sujetoObligado.revisorId, revisorId)));
+  return e ?? null;
+}

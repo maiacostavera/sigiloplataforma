@@ -1,6 +1,6 @@
 // Consultas de lectura para las pantallas del revisor. Todas reciben el
 // revisorId y lo usan en el WHERE: nunca se lee nada de otro revisor.
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, t } from "./db";
 
 export type FilaExpediente = {
@@ -78,4 +78,19 @@ export async function itemsDeRequerimiento(requerimientoId: string) {
     .innerJoin(t.puntoPrograma, eq(t.puntoPrograma.id, t.requerimientoItem.puntoProgramaId))
     .where(eq(t.requerimientoItem.requerimientoId, requerimientoId))
     .orderBy(asc(t.puntoPrograma.orden), asc(t.requerimientoItem.creadoEn));
+}
+
+/** Evidencias de un conjunto de ítems (ya verificados como del revisor). */
+export async function evidenciasDeItems(itemIds: string[]) {
+  if (!itemIds.length) return [];
+  return db.select().from(t.evidencia).where(inArray(t.evidencia.requerimientoItemId, itemIds)).orderBy(asc(t.evidencia.recibidoEn));
+}
+
+/** Comentarios del portal y rechazos, para mostrar al lado de cada ítem. */
+export async function notasDeItems(itemIds: string[]) {
+  if (!itemIds.length) return [];
+  return db.select({ itemId: t.evento.entidadId, tipo: t.evento.tipo, payload: t.evento.payload, motivo: t.evento.motivo, actor: t.evento.actor, cuando: t.evento.ocurridoEn })
+    .from(t.evento)
+    .where(and(eq(t.evento.entidad, "requerimiento_item"), inArray(t.evento.tipo, ["comentario_portal", "item_rechazado", "item_aceptado"]), inArray(t.evento.entidadId, itemIds)))
+    .orderBy(asc(t.evento.id));
 }
