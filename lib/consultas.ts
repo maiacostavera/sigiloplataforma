@@ -94,3 +94,27 @@ export async function notasDeItems(itemIds: string[]) {
     .where(and(eq(t.evento.entidad, "requerimiento_item"), inArray(t.evento.tipo, ["comentario_portal", "item_rechazado", "item_aceptado"]), inArray(t.evento.entidadId, itemIds)))
     .orderBy(asc(t.evento.id));
 }
+
+export type FilaVencimiento = {
+  item_id: string; descripcion: string; vence_en: string; estado: string; responsable_email: string;
+  requerimiento_id: string; numero: number; sujeto_id: string; razon_social: string; revision_id: string;
+};
+
+/** Todos los ítems de todos los sujetos obligados del revisor, por fecha. */
+export async function vencimientos(revisorId: string, filtro: "vencidos" | "semana" | "todos", hoy: string) {
+  const enSiete = sql`${hoy}::date + 7`;
+  const cond =
+    filtro === "vencidos" ? sql`and i.estado in ('pendiente','rechazado') and i.vence_en < ${hoy}::date`
+    : filtro === "semana" ? sql`and i.estado in ('pendiente','rechazado') and i.vence_en between ${hoy}::date and ${enSiete}`
+    : sql``;
+  const f = await db.execute<FilaVencimiento>(sql`
+    select i.id as item_id, i.descripcion, i.vence_en::text, i.estado, i.responsable_email,
+           q.id as requerimiento_id, q.numero, s.id as sujeto_id, s.razon_social, r.id as revision_id
+    from requerimiento_item i
+    join requerimiento q on q.id = i.requerimiento_id
+    join revision r on r.id = q.revision_id
+    join sujeto_obligado s on s.id = r.sujeto_obligado_id
+    where s.revisor_id = ${revisorId} ${cond}
+    order by i.vence_en asc, s.razon_social asc, q.numero asc`);
+  return [...f];
+}

@@ -8,6 +8,7 @@ import { avisoDeHueco } from "@/lib/periodos";
 import { EstadoRevision } from "@/components/Estados";
 import { Dias } from "@/components/Dias";
 import { Pestanas } from "@/components/Pestanas";
+import { IconoPaquete } from "@/components/Iconos";
 
 export default async function LayoutRevision({ children, params }: { children: React.ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,7 +27,12 @@ export default async function LayoutRevision({ children, params }: { children: R
           <p className="rotulo">Revisión</p>
           <h1>{s.razonSocial}</h1>
         </div>
-        <EstadoRevision estado={v.estado} />
+        <div className="fila">
+          <EstadoRevision estado={v.estado} />
+          <a href={`/app/revisiones/${v.id}/expediente`} className="btn btn-secundario" download title="Descarga un ZIP con todas las evidencias, el expediente en HTML y las huellas para verificar">
+            <IconoPaquete />Expediente para la UIF
+          </a>
+        </div>
       </div>
       <dl className="ficha-datos" style={{ marginBottom: 24 }}>
         <div><dt className="rotulo">CUIT</dt><dd className="dato">{cuit(s.cuit)}</dd></div>

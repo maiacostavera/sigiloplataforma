@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const enlaces = [
   { href: "/app", texto: "Mis expedientes" },
+  { href: "/app/vencimientos", texto: "Vencimientos" },
 ];
 
 export function NavPrincipal() {
